@@ -423,6 +423,7 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
 
   /**
    * Prepares the {@code request} to be executed at some point in the future.
+   * 请求网络
    */
   @Override public Call newCall(Request request) {
     return RealCall.newRealCall(this, request, false /* for web socket */);

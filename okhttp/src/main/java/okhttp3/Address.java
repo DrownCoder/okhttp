@@ -18,10 +18,12 @@ package okhttp3;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.util.List;
+
 import javax.annotation.Nullable;
 import javax.net.SocketFactory;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSocketFactory;
+
 import okhttp3.internal.Util;
 
 import static okhttp3.internal.Util.equal;
@@ -172,6 +174,8 @@ public final class Address {
     return result;
   }
 
+  //RealConnection 的 address 与传入的 Address 参数相等。RealConnection 的 address
+  // 描述建立连接所需的配置信息，包括对端的信息等，不难理解只有所有相关配置相等时 RealConnection 才是真正能复用的。
   boolean equalsNonHost(Address that) {
     return this.dns.equals(that.dns)
         && this.proxyAuthenticator.equals(that.proxyAuthenticator)

@@ -112,6 +112,7 @@ public final class StreamAllocation {
     try {
       RealConnection resultConnection = findHealthyConnection(connectTimeout, readTimeout,
           writeTimeout, connectionRetryEnabled, doExtensiveHealthChecks);
+      //建立HttpCodec
       HttpCodec resultCodec = resultConnection.newCodec(client, chain, this);
 
       synchronized (connectionPool) {
@@ -127,10 +128,13 @@ public final class StreamAllocation {
    * Finds a connection and returns it if it is healthy. If it is unhealthy the process is repeated
    * until a healthy connection is found.
    */
+  /**
+   * 找寻一条健康的链接
+   */
   private RealConnection findHealthyConnection(int connectTimeout, int readTimeout,
       int writeTimeout, boolean connectionRetryEnabled, boolean doExtensiveHealthChecks)
       throws IOException {
-    while (true) {
+    while (true) { //循环查找一个链接
       RealConnection candidate = findConnection(connectTimeout, readTimeout, writeTimeout,
           connectionRetryEnabled);
 
@@ -143,7 +147,9 @@ public final class StreamAllocation {
 
       // Do a (potentially slow) check to confirm that the pooled connection is still good. If it
       // isn't, take it out of the pool and start again.
+      //如果这条连接不健康
       if (!candidate.isHealthy(doExtensiveHealthChecks)) {
+        //禁止这条连接
         noNewStreams();
         continue;
       }
@@ -173,6 +179,7 @@ public final class StreamAllocation {
       releasedConnection = this.connection;
       toClose = releaseIfNoNewStreams();
       if (this.connection != null) {
+        //如果当前connection不为空可以直接使用
         // We had an already-allocated connection and it's good.
         result = this.connection;
         releasedConnection = null;
@@ -182,8 +189,10 @@ public final class StreamAllocation {
         releasedConnection = null;
       }
 
+      //当前这个connection不能使用，尝试从连接池里面获取一个请求
       if (result == null) {
         // Attempt to get a connection from the pool.
+        //Internal是一个抽象类，instance是在OkHttpClient中实现的，get方法实现的时候从pool的get方法
         Internal.instance.get(connectionPool, address, this, null);
         if (connection != null) {
           foundPooledConnection = true;
@@ -194,14 +203,16 @@ public final class StreamAllocation {
       }
     }
     closeQuietly(toClose);
-
+    //释放一条连接,回调
     if (releasedConnection != null) {
       eventListener.connectionReleased(call, releasedConnection);
     }
+    //如果找到复用的，则使用这条连接，回调
     if (foundPooledConnection) {
       eventListener.connectionAcquired(call, result);
     }
     if (result != null) {
+      //找到一条可复用的连接
       // If we found an already-allocated or pooled connection, we're done.
       return result;
     }
@@ -219,6 +230,7 @@ public final class StreamAllocation {
       if (newRouteSelection) {
         // Now that we have a set of IP addresses, make another attempt at getting a connection from
         // the pool. This could match due to connection coalescing.
+        //遍历RooteSelector
         List<Route> routes = routeSelection.getAll();
         for (int i = 0, size = routes.size(); i < size; i++) {
           Route route = routes.get(i);
@@ -233,6 +245,7 @@ public final class StreamAllocation {
       }
 
       if (!foundPooledConnection) {
+        //没找到则创建一条
         if (selectedRoute == null) {
           selectedRoute = routeSelection.next();
         }
@@ -247,6 +260,7 @@ public final class StreamAllocation {
     }
 
     // If we found a pooled connection on the 2nd time around, we're done.
+    //如果第二次找到了可以复用的，则返回
     if (foundPooledConnection) {
       eventListener.connectionAcquired(call, result);
       return result;
@@ -255,6 +269,7 @@ public final class StreamAllocation {
     // Do TCP + TLS handshakes. This is a blocking operation.
     result.connect(
         connectTimeout, readTimeout, writeTimeout, connectionRetryEnabled, call, eventListener);
+    //将这条路由从错误缓存中清除
     routeDatabase().connected(result.route());
 
     Socket socket = null;
@@ -262,6 +277,7 @@ public final class StreamAllocation {
       reportedAcquired = true;
 
       // Pool the connection.
+      //将这个请求加入连接池
       Internal.instance.put(connectionPool, result);
 
       // If another multiplexed connection to the same address was created concurrently, then
@@ -465,6 +481,7 @@ public final class StreamAllocation {
 
     this.connection = connection;
     this.reportedAcquired = reportedAcquired;
+    //往这条连接中增加一条流
     connection.allocations.add(new StreamAllocationReference(this, callStackTrace));
   }
 

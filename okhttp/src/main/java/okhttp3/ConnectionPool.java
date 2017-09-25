@@ -47,12 +47,15 @@ public final class ConnectionPool {
    * thread running per connection pool. The thread pool executor permits the pool itself to be
    * garbage collected.
    */
+  //默认创建一个线程池
   private static final Executor executor = new ThreadPoolExecutor(0 /* corePoolSize */,
       Integer.MAX_VALUE /* maximumPoolSize */, 60L /* keepAliveTime */, TimeUnit.SECONDS,
       new SynchronousQueue<Runnable>(), Util.threadFactory("OkHttp ConnectionPool", true));
 
   /** The maximum number of idle connections for each address. */
+  //最大空闲连接
   private final int maxIdleConnections;
+  //连接保活时间
   private final long keepAliveDurationNs;
   private final Runnable cleanupRunnable = new Runnable() {
     @Override public void run() {
@@ -82,6 +85,7 @@ public final class ConnectionPool {
    * The tuning parameters in this pool are subject to change in future OkHttp releases. Currently
    * this pool holds up to 5 idle connections which will be evicted after 5 minutes of inactivity.
    */
+  //默认最大空闲连接数为5个，保活时间为5分钟
   public ConnectionPool() {
     this(5, 5, TimeUnit.MINUTES);
   }
@@ -120,9 +124,12 @@ public final class ConnectionPool {
    * route is null if the address has not yet been routed.
    */
   @Nullable RealConnection get(Address address, StreamAllocation streamAllocation, Route route) {
+    //这种方法的目的是允许一个程序断言当前线程已经持有指定的锁
     assert (Thread.holdsLock(this));
     for (RealConnection connection : connections) {
       if (connection.isEligible(address, route)) {
+        //连接池里面存在可以复用的连接
+        //往连接池中这条可以复用的连接增加一条流
         streamAllocation.acquire(connection, true);
         return connection;
       }

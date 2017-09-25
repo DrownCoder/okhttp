@@ -117,6 +117,9 @@ public final class Request {
       this.headers = request.headers.newBuilder();
     }
 
+    /**
+     * 最后调用的都是这个方法
+     */
     public Builder url(HttpUrl url) {
       if (url == null) throw new NullPointerException("url == null");
       this.url = url;
@@ -133,6 +136,7 @@ public final class Request {
       if (url == null) throw new NullPointerException("url == null");
 
       // Silently replace web socket URLs with HTTP URLs.
+      //静默的将以ws:或者wss:开头的WebSocket链接替换为http
       if (url.regionMatches(true, 0, "ws:", 0, 3)) {
         url = "http:" + url.substring(3);
       } else if (url.regionMatches(true, 0, "wss:", 0, 4)) {
@@ -162,6 +166,7 @@ public final class Request {
      * with that name, they are all replaced.
      */
     public Builder header(String name, String value) {
+      //header内部用的ArrayList实现，i-name,i+1-value设计很奇妙
       headers.set(name, value);
       return this;
     }

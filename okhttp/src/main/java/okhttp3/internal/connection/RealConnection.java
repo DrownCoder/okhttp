@@ -411,21 +411,24 @@ public final class RealConnection extends Http2Connection.Listener implements Co
    */
   public boolean isEligible(Address address, @Nullable Route route) {
     // If this connection is not accepting new streams, we're done.
+    //如果当前这次连接的最大并发数达到上限，false
     if (allocations.size() >= allocationLimit || noNewStreams) return false;
 
     // If the non-host fields of the address don't overlap, we're done.
+    //如果两个address的其他参数不相同，false
     if (!Internal.instance.equalsNonHost(this.route.address(), address)) return false;
 
     // If the host exactly matches, we're done: this connection can carry the address.
+    //如果两个address的url的host相同，true,复用这条连接
     if (address.url().host().equals(this.route().address().url().host())) {
       return true; // This connection is a perfect match.
     }
-
+    //如果上面的不符合，在下面的情况下可以合并连接
     // At this point we don't have a hostname match. But we still be able to carry the request if
     // our connection coalescing requirements are met. See also:
     // https://hpbn.co/optimizing-application-delivery/#eliminate-domain-sharding
     // https://daniel.haxx.se/blog/2016/08/18/http2-connection-coalescing/
-
+    //首先这个连接需要时HTTP/2
     // 1. This connection must be HTTP/2.
     if (http2Connection == null) return false;
 
@@ -433,15 +436,19 @@ public final class RealConnection extends Http2Connection.Listener implements Co
     // hosts, which only happens after route planning. We can't coalesce connections that use a
     // proxy, since proxies don't tell us the origin server's IP address.
     if (route == null) return false;
+    //代理不可以
     if (route.proxy().type() != Proxy.Type.DIRECT) return false;
     if (this.route.proxy().type() != Proxy.Type.DIRECT) return false;
+    //IP address需要相同
     if (!this.route.socketAddress().equals(route.socketAddress())) return false;
 
     // 3. This connection's server certificate's must cover the new host.
+    //这个连接的服务器证书必须覆盖新的主机。
     if (route.address().hostnameVerifier() != OkHostnameVerifier.INSTANCE) return false;
     if (!supportsUrl(address.url())) return false;
 
     // 4. Certificate pinning must match the host.
+    //证书将必须匹配主机
     try {
       address.certificatePinner().check(address.url().host(), handshake().peerCertificates());
     } catch (SSLPeerUnverifiedException e) {
