@@ -194,6 +194,7 @@ public final class Cache implements Closeable, Flushable {
     try {
       snapshot = cache.get(key);
       if (snapshot == null) {
+        //没拿到，返回null
         return null;
       }
     } catch (IOException e) {
@@ -202,12 +203,13 @@ public final class Cache implements Closeable, Flushable {
     }
 
     try {
+      //创建一个Entry,这里其实传入的是CleanFiles数组的第一个（ENTRY_METADATA = 0）得到是头信息,也就是key.0
       entry = new Entry(snapshot.getSource(ENTRY_METADATA));
     } catch (IOException e) {
       Util.closeQuietly(snapshot);
       return null;
     }
-
+    //得到缓存构建得到的response
     Response response = entry.response(snapshot);
 
     if (!entry.matches(request, response)) {
@@ -222,6 +224,7 @@ public final class Cache implements Closeable, Flushable {
     String requestMethod = response.request().method();
 
     if (HttpMethod.invalidatesCache(response.request().method())) {
+      //OKhttp只能缓存GET请求！。。。
       try {
         remove(response.request());
       } catch (IOException ignored) {
@@ -230,6 +233,7 @@ public final class Cache implements Closeable, Flushable {
       return null;
     }
     if (!requestMethod.equals("GET")) {
+      //OKhttp只能缓存GET请求！。。。
       // Don't cache non-GET responses. We're technically allowed to cache
       // HEAD requests and some POST requests, but the complexity of doing
       // so is high and the benefit is low.
@@ -247,6 +251,7 @@ public final class Cache implements Closeable, Flushable {
       if (editor == null) {
         return null;
       }
+      //缓存了Header信息
       entry.writeTo(editor);
       return new CacheRequestImpl(editor);
     } catch (IOException e) {
@@ -542,6 +547,7 @@ public final class Cache implements Closeable, Flushable {
         BufferedSource source = Okio.buffer(in);
         url = source.readUtf8LineStrict();
         requestMethod = source.readUtf8LineStrict();
+        //得到cleanfiles[0]来构建头信息
         Headers.Builder varyHeadersBuilder = new Headers.Builder();
         int varyRequestHeaderLineCount = readInt(source);
         for (int i = 0; i < varyRequestHeaderLineCount; i++) {
@@ -605,6 +611,7 @@ public final class Cache implements Closeable, Flushable {
     }
 
     public void writeTo(DiskLruCache.Editor editor) throws IOException {
+      //往dirty中写入header信息，ENTRY_METADATA=0，所以是dirtyFiles[0]
       BufferedSink sink = Okio.buffer(editor.newSink(ENTRY_METADATA));
 
       sink.writeUtf8(url)
@@ -741,7 +748,7 @@ public final class Cache implements Closeable, Flushable {
       this.snapshot = snapshot;
       this.contentType = contentType;
       this.contentLength = contentLength;
-
+      //这里ENTRY_BODY=1，同样拿的是CleanFiles数组，构建Responsebody
       Source source = snapshot.getSource(ENTRY_BODY);
       bodySource = Okio.buffer(new ForwardingSource(source) {
         @Override public void close() throws IOException {

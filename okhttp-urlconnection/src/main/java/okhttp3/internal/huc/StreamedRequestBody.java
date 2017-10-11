@@ -26,7 +26,7 @@ import okio.Pipe;
  * This request body streams bytes from an application thread to an OkHttp dispatcher thread via a
  * pipe. Because the data is not buffered it can only be transmitted once.
  */
-final class StreamedRequestBody extends OutputStreamRequestBody implements UnrepeatableRequestBody {
+  final class StreamedRequestBody extends OutputStreamRequestBody implements UnrepeatableRequestBody {
   private final Pipe pipe = new Pipe(8192);
 
   StreamedRequestBody(long expectedContentLength) {

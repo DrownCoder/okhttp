@@ -123,6 +123,7 @@ import static okhttp3.internal.Util.checkDuration;
  * remain idle.
  */
 public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory {
+  //外观模式+builder模式
   static final List<Protocol> DEFAULT_PROTOCOLS = Util.immutableList(
       Protocol.HTTP_2, Protocol.HTTP_1_1);
 
@@ -426,6 +427,7 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
    * 请求网络
    */
   @Override public Call newCall(Request request) {
+    //工厂模式
     return RealCall.newRealCall(this, request, false /* for web socket */);
   }
 
@@ -875,7 +877,7 @@ public class OkHttpClient implements Cloneable, Call.Factory, WebSocket.Factory 
      * These interceptors must call {@link Interceptor.Chain#proceed} exactly once: it is an error
      * for a network interceptor to short-circuit or repeat a network request.
      */
-    public List<Interceptor> networkInterceptors() {
+    public List<Interceptor> networkretryOnConnectionFailureInterceptors() {
       return networkInterceptors;
     }
 

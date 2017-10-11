@@ -125,10 +125,14 @@ public final class Dispatcher {
   }
 
   synchronized void enqueue(AsyncCall call) {
+    //执行的个数小于maxRequest,并且请求同一个主机的个数小于maxRequestsPerHost
     if (runningAsyncCalls.size() < maxRequests && runningCallsForHost(call) < maxRequestsPerHost) {
+      //加入执行队列
       runningAsyncCalls.add(call);
+      //获得线程池，得不到则创建一个
       executorService().execute(call);
     } else {
+      //加入等待队列
       readyAsyncCalls.add(call);
     }
   }

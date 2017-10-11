@@ -107,7 +107,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
     RealInterceptorChain realChain = (RealInterceptorChain) chain;
     Call call = realChain.call();
     EventListener eventListener = realChain.eventListener();
-
+    //streamAllocation的创建位置
     streamAllocation = new StreamAllocation(client.connectionPool(), createAddress(request.url()),
         call, eventListener, callStackTrace);
 
@@ -130,15 +130,20 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
           throw e.getLastConnectException();
         }
         releaseConnection = false;
+        //重试。。。
         continue;
       } catch (IOException e) {
         // An attempt to communicate with a server failed. The request may have been sent.
+        //先判断当前请求是否已经发送了
         boolean requestSendStarted = !(e instanceof ConnectionShutdownException);
+        //同样的重试判断
         if (!recover(e, requestSendStarted, request)) throw e;
         releaseConnection = false;
+        //重试。。。
         continue;
       } finally {
         // We're throwing an unchecked exception. Release any resources.
+        //没有捕获到的异常，最终要释放
         if (releaseConnection) {
           streamAllocation.streamFailed(null);
           streamAllocation.release();
@@ -146,6 +151,9 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
       }
 
       // Attach the prior response if it exists. Such responses never have a body.
+      //这里基本上都没有讲，priorResponse是用来保存前一个Resposne的，这里可以看到将前一个Response和当前的Resposne
+      //结合在一起了，对应的场景是，当获得Resposne后，发现需要重定向，则将当前Resposne设置给priorResponse，再执行一遍流程，
+      //直到不需要重定向了，则将priorResponse和Resposne结合起来。
       if (priorResponse != null) {
         response = response.newBuilder()
             .priorResponse(priorResponse.newBuilder()
@@ -153,28 +161,31 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
                     .build())
             .build();
       }
-
+      //判断是否需要重定向,如果需要重定向则返回一个重定向的Request，没有则为null
       Request followUp = followUpRequest(response);
 
       if (followUp == null) {
+        //不需要重定向
         if (!forWebSocket) {
+          //是WebSocket,释放
           streamAllocation.release();
         }
+        //返回response
         return response;
       }
-
+      //需要重定向，关闭响应流
       closeQuietly(response.body());
-
+      //重定向次数++,并且小于最大重定向次数MAX_FOLLOW_UPS（20）
       if (++followUpCount > MAX_FOLLOW_UPS) {
         streamAllocation.release();
         throw new ProtocolException("Too many follow-up requests: " + followUpCount);
       }
-
+      //是UnrepeatableRequestBody， 刚才看过也就是是流类型，没有被缓存，不能重定向
       if (followUp.body() instanceof UnrepeatableRequestBody) {
         streamAllocation.release();
         throw new HttpRetryException("Cannot retry streamed HTTP body", response.code());
       }
-
+      //判断是否相同，不然重新创建一个streamConnection
       if (!sameConnection(response, followUp.url())) {
         streamAllocation.release();
         streamAllocation = new StreamAllocation(client.connectionPool(),
@@ -183,7 +194,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
         throw new IllegalStateException("Closing the body of " + response
             + " didn't close its backing stream. Bad interceptor?");
       }
-
+      //赋值再来！
       request = followUp;
       priorResponse = response;
     }
@@ -214,15 +225,20 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
     streamAllocation.streamFailed(e);
 
     // The application layer has forbidden retries.
+    //如果OkHttpClient直接配置拒绝失败重连，return false
     if (!client.retryOnConnectionFailure()) return false;
 
     // We can't send the request body again.
+    //如果请求已经发送，并且这个请求体是一个UnrepeatableRequestBody类型，则不能重试。
+    //StreamedRequestBody实现了UnrepeatableRequestBody接口，是个流类型，不会被缓存，所以只能执行一次，具体可看。
     if (requestSendStarted && userRequest.body() instanceof UnrepeatableRequestBody) return false;
 
     // This exception is fatal.
+    //一些严重的问题，就不要重试了
     if (!isRecoverable(e, requestSendStarted)) return false;
 
     // No more routes to attempt.
+    //没有更多的路由就不要重试了
     if (!streamAllocation.hasMoreRoutes()) return false;
 
     // For failure recovery, use the same route selector with a new connection.
@@ -231,6 +247,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
 
   private boolean isRecoverable(IOException e, boolean requestSendStarted) {
     // If there was a protocol problem, don't recover.
+    //如果是协议问题，不要在重试了
     if (e instanceof ProtocolException) {
       return false;
     }
@@ -238,6 +255,8 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
     // If there was an interruption don't recover, but if there was a timeout connecting to a route
     // we should try the next route (if there is one).
     if (e instanceof InterruptedIOException) {
+      //超时问题，并且请求还没有被发送，可以重试
+      //其他就不要重试了
       return e instanceof SocketTimeoutException && !requestSendStarted;
     }
 
@@ -246,12 +265,14 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
     if (e instanceof SSLHandshakeException) {
       // If the problem was a CertificateException from the X509TrustManager,
       // do not retry.
+      //理解为如果是安全原因，就不要重试了
       if (e.getCause() instanceof CertificateException) {
         return false;
       }
     }
     if (e instanceof SSLPeerUnverifiedException) {
       // e.g. a certificate pinning error.
+      //安全原因
       return false;
     }
 
@@ -337,7 +358,7 @@ public final class RetryAndFollowUpInterceptor implements Interceptor {
         if (!sameConnection(userResponse, url)) {
           requestBuilder.removeHeader("Authorization");
         }
-
+        //重新构造了一个Request
         return requestBuilder.url(url).build();
 
       case HTTP_CLIENT_TIMEOUT:

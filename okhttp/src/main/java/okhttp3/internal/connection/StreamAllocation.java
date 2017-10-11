@@ -74,6 +74,10 @@ import static okhttp3.internal.Util.closeQuietly;
  * but not the other streams sharing its connection. But if the TLS handshake is still in progress
  * then canceling may break the entire connection.
  */
+
+/**
+ * 这个类处理了Connections,Streams,Calls三者之间的关系
+ */
 public final class StreamAllocation {
   public final Address address;
   private RouteSelector.Selection routeSelection;

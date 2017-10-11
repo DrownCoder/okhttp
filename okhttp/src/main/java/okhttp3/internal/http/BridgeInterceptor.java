@@ -80,7 +80,7 @@ public final class BridgeInterceptor implements Interceptor {
       transparentGzip = true;
       requestBuilder.header("Accept-Encoding", "gzip");
     }
-
+    //携带cookie信息
     List<Cookie> cookies = cookieJar.loadForRequest(userRequest.url());
     if (!cookies.isEmpty()) {
       requestBuilder.header("Cookie", cookieHeader(cookies));
@@ -91,12 +91,12 @@ public final class BridgeInterceptor implements Interceptor {
     }
 
     Response networkResponse = chain.proceed(requestBuilder.build());
-
+    //将得到的response的header保存cookie，默认操作为空
     HttpHeaders.receiveHeaders(cookieJar, userRequest.url(), networkResponse.headers());
 
     Response.Builder responseBuilder = networkResponse.newBuilder()
         .request(userRequest);
-
+    //前面解析完header后，判断服务器是否支持gzip压缩格式，如果支持将交给Okio处理
     if (transparentGzip
         && "gzip".equalsIgnoreCase(networkResponse.header("Content-Encoding"))
         && HttpHeaders.hasBody(networkResponse)) {
