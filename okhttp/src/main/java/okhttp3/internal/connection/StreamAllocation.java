@@ -223,6 +223,7 @@ public final class StreamAllocation {
 
     // If we need a route selection, make one. This is a blocking operation.
     boolean newRouteSelection = false;
+    //切换路由再在连接池里面找下，如果有则返回
     if (selectedRoute == null && (routeSelection == null || !routeSelection.hasNext())) {
       newRouteSelection = true;
       routeSelection = routeSelector.next();
@@ -259,6 +260,7 @@ public final class StreamAllocation {
         route = selectedRoute;
         refusedStreamCount = 0;
         result = new RealConnection(connectionPool, selectedRoute);
+        //往连接中增加流
         acquire(result, false);
       }
     }
@@ -271,6 +273,7 @@ public final class StreamAllocation {
     }
 
     // Do TCP + TLS handshakes. This is a blocking operation.
+    // 建立连接,开始握手
     result.connect(
         connectTimeout, readTimeout, writeTimeout, connectionRetryEnabled, call, eventListener);
     //将这条路由从错误缓存中清除
@@ -286,6 +289,7 @@ public final class StreamAllocation {
 
       // If another multiplexed connection to the same address was created concurrently, then
       // release this connection and acquire that one.
+      // 如果是多路复用，则合并
       if (result.isMultiplexed()) {
         socket = Internal.instance.deduplicate(connectionPool, address, this);
         result = connection;

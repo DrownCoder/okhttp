@@ -168,6 +168,7 @@ public final class Http1Codec implements HttpCodec {
 
   /** Returns bytes of a request header for sending on an HTTP transport. */
   public void writeRequest(Headers headers, String requestLine) throws IOException {
+    //写入header
     if (state != STATE_IDLE) throw new IllegalStateException("state: " + state);
     sink.writeUtf8(requestLine).writeUtf8("\r\n");
     for (int i = 0, size = headers.size(); i < size; i++) {

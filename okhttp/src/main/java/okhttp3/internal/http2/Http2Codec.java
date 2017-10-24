@@ -104,6 +104,7 @@ public final class Http2Codec implements HttpCodec {
   }
 
   @Override public void writeRequestHeaders(Request request) throws IOException {
+    //公用一次请求的header，http2啊
     if (stream != null) return;
 
     boolean hasRequestBody = request.body() != null;
@@ -173,11 +174,12 @@ public final class Http2Codec implements HttpCodec {
       if (name.equals(RESPONSE_STATUS)) {
         statusLine = StatusLine.parse("HTTP/1.1 " + value);
       } else if (!HTTP_2_SKIPPED_RESPONSE_HEADERS.contains(name)) {
+        //写入header
         Internal.instance.addLenient(headersBuilder, name.utf8(), value);
       }
     }
     if (statusLine == null) throw new ProtocolException("Expected ':status' header not present");
-
+    //构建包含头的Resposne
     return new Response.Builder()
         .protocol(Protocol.HTTP_2)
         .code(statusLine.code)

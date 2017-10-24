@@ -46,8 +46,10 @@ public final class CallServerInterceptor implements Interceptor {
 
     long sentRequestMillis = System.currentTimeMillis();
 
+    //开始写入header
     realChain.eventListener().requestHeadersStart(realChain.call());
     httpCodec.writeRequestHeaders(request);
+    //写入结束
     realChain.eventListener().requestHeadersEnd(realChain.call(), request);
 
     Response.Builder responseBuilder = null;
@@ -55,6 +57,9 @@ public final class CallServerInterceptor implements Interceptor {
       // If there's a "Expect: 100-continue" header on the request, wait for a "HTTP/1.1 100
       // Continue" response before transmitting the request body. If we don't get that, return
       // what we did get (such as a 4xx response) without ever transmitting the request body.
+      //当Header为Expect: 100-continue时，只发送请求头
+      //1. 发送一个请求, 包含一个Expect:100-continue, 询问Server使用愿意接受数据
+      //2. 接收到Server返回的100-continue应答以后, 才把数据POST给Server
       if ("100-continue".equalsIgnoreCase(request.header("Expect"))) {
         httpCodec.flushRequest();
         realChain.eventListener().responseHeadersStart(realChain.call());
@@ -62,7 +67,9 @@ public final class CallServerInterceptor implements Interceptor {
       }
 
       if (responseBuilder == null) {
+        //得到响应后，根据Resposne判断是否写入请求体
         // Write the request body if the "Expect: 100-continue" expectation was met.
+        //写入请求体
         realChain.eventListener().requestBodyStart(realChain.call());
         long contentLength = request.body().contentLength();
         CountingSink requestBodyOut =
@@ -71,6 +78,7 @@ public final class CallServerInterceptor implements Interceptor {
 
         request.body().writeTo(bufferedRequestBody);
         bufferedRequestBody.close();
+        //写入完成
         realChain.eventListener()
             .requestBodyEnd(realChain.call(), requestBodyOut.successfulCount);
       } else if (!connection.isMultiplexed()) {
@@ -80,10 +88,11 @@ public final class CallServerInterceptor implements Interceptor {
         streamAllocation.noNewStreams();
       }
     }
-
+    //结束请求
     httpCodec.finishRequest();
 
     if (responseBuilder == null) {
+      //得到响应头
       realChain.eventListener().responseHeadersStart(realChain.call());
       responseBuilder = httpCodec.readResponseHeaders(false);
     }
@@ -105,6 +114,7 @@ public final class CallServerInterceptor implements Interceptor {
           .body(Util.EMPTY_RESPONSE)
           .build();
     } else {
+      //构建响应体
       response = response.newBuilder()
           .body(httpCodec.openResponseBody(response))
           .build();
@@ -119,7 +129,7 @@ public final class CallServerInterceptor implements Interceptor {
       throw new ProtocolException(
           "HTTP " + code + " had non-zero Content-Length: " + response.body().contentLength());
     }
-
+    //返回响应
     return response;
   }
 

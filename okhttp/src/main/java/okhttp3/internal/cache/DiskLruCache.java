@@ -175,6 +175,7 @@ public final class DiskLruCache implements Closeable, Flushable {
         }
 
         try {
+          //清理
           trimToSize();
         } catch (IOException ignored) {
           mostRecentTrimFailed = true;
